@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bad Advice Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Figtree:wght@400;600;700&display=swap">
+<style>
+/* Layout: one black stage. Desktop = headline left, situation right, fanned hand along the bottom.
+   Mobile = situation on top, headline, swipeable hand. After a pick the pair meets in the middle,
+   then sits left (desktop) or up top (mobile) while the buy panel slides in. */
+:root {
+  --bg: #000000;
+  --cream: #F5F0EA;
+  --sheet: #F5F0EA;
+  --sheet-2: #E9E2DA;
+  --line: #C9BFB6;
+  --red: #C5282F;
+  --red-l: #E0434B;
+  --muted: #A89F9A;
+  --soft: #CFC6C0;
+  --ink: #2A2223;
+  --ink-2: #5A4F50;
+  --white: #FFFFFF;
+  --display: 'Anton', 'Impact', 'Arial Narrow', sans-serif;
+  --body: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--cream); font-family: var(--body); overflow: hidden; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+img { display: block; max-width: none; user-select: none; -webkit-user-select: none; -webkit-user-drag: none; }
+:focus-visible { outline: 3px solid var(--red-l); outline-offset: 4px; }
+
+#stage { position: relative; width: 100%; height: 100%; overflow: hidden; }
+.label { font-size: 12px; font-weight: 700; letter-spacing: 1.3px; text-transform: uppercase; color: var(--red-l); }
+.headline { margin: 0; font-family: var(--display); font-weight: 400; line-height: 1.04; color: var(--cream); text-wrap: balance; }
+.headline .hl { display: inline-block; background: var(--red); color: var(--white); padding: 0 .16em .06em; transform: rotate(-1.6deg); }
+.lift-shadow { filter: drop-shadow(0 18px 30px rgba(0,0,0,.85)); }
+.glow { filter: drop-shadow(0 0 10px rgba(224,67,75,.9)) drop-shadow(0 18px 30px rgba(0,0,0,.85)); }
+.fades { transition: opacity .3s ease; }
+.gone { opacity: 0; pointer-events: none; }
+
+/* situation */
+#sitWrap { text-align: center; }
+#sit { margin: 14px auto 0; height: var(--sh); width: calc(var(--sh) * .7337); transform: rotate(var(--sr)); }
+
+/* hand */
+.slot { position: relative; flex: none; display: block; width: var(--hw); height: calc(var(--hw) / .7337); }
+.slot .face { width: 100%; height: 100%; transition: transform .22s cubic-bezier(.2,.8,.2,1), filter .22s; filter: drop-shadow(0 10px 18px rgba(0,0,0,.7)); }
+.slot .pill { position: absolute; left: 50%; top: 0; z-index: 2; white-space: nowrap; pointer-events: none; opacity: 0;
+  transform: translate(-50%, calc(-100% - var(--lift) - 6px)) rotate(calc(var(--r, 0deg) * -1)) scale(.9);
+  transition: opacity .18s, transform .22s cubic-bezier(.2,.8,.2,1); }
+.slot.sel .pill { pointer-events: auto; cursor: pointer; opacity: 1; transform: translate(-50%, calc(-100% - var(--lift) - 12px)) rotate(calc(var(--r, 0deg) * -1)); }
+.slot.sel .face { transform: translateY(calc(var(--lift) * -1)) rotate(calc(var(--r, 0deg) * -1)) scale(1.04);
+  filter: drop-shadow(0 0 10px rgba(224,67,75,.9)) drop-shadow(0 18px 30px rgba(0,0,0,.85)); }
+.pill { display: inline-block; background: var(--red); color: var(--white); font-family: var(--display); font-size: 17px; letter-spacing: .5px; padding: 9px 20px; border-radius: 999px; box-shadow: 0 8px 18px rgba(0,0,0,.6); }
+
+/* ---------- mobile ---------- */
+.mob #stage { display: flex; flex-direction: column; }
+.mob #sitWrap { flex: none; padding-top: max(18px, 3vh); }
+.mob #copy { flex: none; padding: 0 20px; margin-top: max(14px, 2.4vh); text-align: center; }
+.mob #copy .headline { font-size: clamp(26px, 8.6vw, 38px); }
+.mob #copy .eyebrow, .mob #copy .sub { display: none; }
+.mob #hand { flex: none; margin-top: auto; padding-bottom: max(16px, 2.6vh); }
+.mob #handHead { display: flex; justify-content: space-between; align-items: baseline; padding: 0 20px; }
+.mob #handHead span { font-size: 13px; color: var(--muted); }
+.mob #handHead .label { color: var(--muted); }
+.mob #row { display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden; padding: 24px 20px 6px; scrollbar-width: none; scroll-snap-type: x proximity; --lift: 14px; }
+.mob #row::-webkit-scrollbar { display: none; }
+.mob .slot { scroll-snap-align: center; }
+.mob .slot .pill { display: none; }
+#playWrap { display: flex; justify-content: center; padding-top: 10px; }
+.desk #playWrap { display: none; }
+#playBtn { font-size: 19px; padding: 12px 30px; opacity: 0; visibility: hidden; transform: translateY(6px); transition: opacity .18s, transform .22s cubic-bezier(.2,.8,.2,1), visibility 0s .2s; }
+#playBtn.show { opacity: 1; visibility: visible; transform: none; transition: opacity .18s, transform .22s cubic-bezier(.2,.8,.2,1), visibility 0s; }
+#handHead .swipe { display: inline-flex; align-items: center; gap: 6px; }
+#handHead .swipe svg { animation: nudge 1.6s ease-in-out infinite; }
+@keyframes nudge { 0%, 60%, 100% { transform: translateX(0); } 30% { transform: translateX(4px); } }
+@media (prefers-reduced-motion: reduce) { #handHead .swipe svg { animation: none; } }
+
+/* ---------- desktop ---------- */
+.desk #sitWrap { position: absolute; }
+.desk #copy { position: absolute; }
+.desk #copy .eyebrow { font-size: 14px; letter-spacing: 1.5px; }
+.desk #copy .headline { margin-top: 18px; }
+.desk #copy .sub { margin: 26px 0 0; max-width: 430px; font-size: 19px; line-height: 1.5; color: var(--soft); }
+.desk #handHead { display: none; }
+.desk #row { position: absolute; inset: 0; pointer-events: none; --lift: 36px; }
+.desk .slot { position: absolute; pointer-events: auto; transform-origin: 50% 100%; transform: rotate(var(--r)); }
+@media (hover: hover) {
+  .desk .slot:hover { z-index: 40 !important; }
+  .desk .slot:hover .face { transform: translateY(calc(var(--lift) * -1)) rotate(calc(var(--r) * -1)) scale(1.04); filter: drop-shadow(0 22px 34px rgba(0,0,0,.9)); }
+  .desk .slot.sel:hover .face { filter: drop-shadow(0 0 10px rgba(224,67,75,.9)) drop-shadow(0 18px 30px rgba(0,0,0,.85)); }
+}
+.desk .slot.sel { z-index: 50 !important; }
+
+/* pair + panel */
+#fx { position: absolute; inset: 0; pointer-events: none; z-index: 60; }
+#fx img { position: absolute; transform-origin: 50% 50%; }
+.mob #fx.dim img { filter: brightness(.5) drop-shadow(0 18px 30px rgba(0,0,0,.85)); transition: filter .4s; }
+#again { position: absolute; z-index: 70; transform: translateX(-50%); }
+#again[hidden] { display: none; }
+
+#panel { position: absolute; z-index: 80; background: var(--sheet); color: var(--ink); transition: transform .5s cubic-bezier(.2,.8,.2,1); box-shadow: 0 -24px 60px rgba(0,0,0,.7); }
+.mob #panel { left: 0; right: 0; bottom: 0; border-radius: 26px 26px 0 0; padding: 34px 22px max(24px, env(safe-area-inset-bottom, 0px)); transform: translateY(105%); }
+.mob #panel::before { content: ""; position: absolute; left: 50%; top: 12px; width: 44px; height: 5px; margin-left: -22px; border-radius: 999px; background: var(--line); }
+.desk #panel { top: 0; right: 0; bottom: 0; width: var(--pw); padding: 48px; display: flex; flex-direction: column; justify-content: center; transform: translateX(105%); box-shadow: -30px 0 80px rgba(0,0,0,.7); }
+#panel.open { transform: none; }
+#panel h2 { margin: 0; font-family: var(--display); font-weight: 400; line-height: 1; color: var(--red); font-size: clamp(44px, 12vw, 54px); text-wrap: balance; }
+.desk #panel h2 { font-size: clamp(48px, 5vw, 64px); }
+#panel p { margin: 14px 0 0; font-size: 18px; line-height: 1.45; color: var(--ink); max-width: 40ch; }
+.desk #panel p { font-size: 20px; }
+#panel .product { margin-top: 22px; display: flex; align-items: center; justify-content: space-between; background: var(--sheet-2); border-radius: 12px; padding: 15px 18px; text-decoration: none; color: var(--ink); }
+#panel .product span:first-child { font-family: var(--display); font-size: 23px; }
+#panel .product span:last-child { font-size: 17px; font-weight: 700; }
+#panel .buy { margin-top: 16px; display: flex; align-items: center; justify-content: center; height: 62px; border-radius: 14px; background: var(--red); color: var(--white); font-family: var(--display); font-size: 25px; letter-spacing: .5px; text-decoration: none; transition: background .15s; }
+#panel .buy:hover { background: #A81F26; }
+#panel .again { margin-top: 10px; width: 100%; height: 50px; border: 1.5px solid var(--line); border-radius: 14px; color: var(--ink-2); font-size: 16px; font-weight: 600; transition: background .15s; }
+#panel .again:hover { background: var(--sheet-2); }
+#panel .close { position: absolute; right: 10px; top: 10px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+#panel .close:hover { background: var(--sheet-2); }
+#panel :focus-visible { outline-color: var(--red); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: .01ms !important; }
+}
+</style>
+
+</head>
+<body>
+<div id="stage" aria-live="polite">
+  <div id="sitWrap" class="fades">
+    <div class="label">the situation</div>
+    <img id="sit" class="lift-shadow" alt="">
+  </div>
+
+  <div id="copy" class="fades">
+    <div class="label eyebrow">try a round</div>
+    <h1 class="headline">give your <span class="hl">worst</span> advice.</h1>
+    <p class="sub">Each round players give bad advice for the most awkward, cringe-worthy situations...</p>
+  </div>
+
+  <div id="hand" class="fades">
+    <div id="handHead"><span class="label">your hand</span><span class="swipe">swipe for more <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6h13M9.5 1.5 14 6l-4.5 4.5"></path></svg></span></div>
+    <div id="row"></div>
+    <div id="playWrap"><button id="playBtn" class="pill" type="button" tabindex="-1">play this card</button></div>
+  </div>
+
+  <div id="fx"></div>
+  <button id="again" class="pill" hidden>play another round</button>
+
+  <aside id="panel" role="dialog" aria-labelledby="pTitle" aria-hidden="true">
+    <button class="close" aria-label="Close" tabindex="-1">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" style="color: var(--ink-2)"><path d="M5 5l14 14M19 5L5 19"></path></svg>
+    </button>
+    <h2 id="pTitle">that's bad advice.</h2>
+    <p>That was truly terrible, you should be proud. Get the full game to play with your most evil friends.</p>
+    <a class="product" href="https://badadvicegame.com/shop-bad-advice-card-game/p/bad-advice-game" target="_blank" rel="noopener" tabindex="-1"><span>the game</span><span>$24</span></a>
+    <a class="buy" href="https://badadvicegame.com/shop-bad-advice-card-game/p/bad-advice-game" target="_blank" rel="noopener" tabindex="-1">buy now</a>
+    <button class="again" tabindex="-1">play another round</button>
+  </aside>
+</div>
+
+<script>
+(function () {
+  // ---------- content: edit these lists to change the demo ----------
+  var CARDS = {
+    rizz: 'turn up the rizz',
+    authority: 'use subtly sexist comments to undermine their authority',
+    lapdance: 'give them a lap dance with lots of eye contact',
+    rap: 'refocus your energy on your rap career',
+    geopolitics: 'casually weave geopolitical conflicts into conversation',
+    tinder: 'invite a random hook up from tinder',
+    fart: 'unleash a silent but deadly fart',
+    tantrum: 'throw a temper tantrum',
+    illness: 'feign a terminal illness',
+    pregnant: "lie and tell them you're pregnant",
+    harassment: 'accuse them of sexual harassment',
+    ghost: 'ghost them, they deserve it',
+    drink: 'have a drink, or several, to take the edge off',
+    giveup: 'give up on your dreams',
+    refuse: 'refuse to engage, give them the silent treatment',
+    footrub: 'pamper them with a sensual foot rub',
+    slutty: 'wear something slutty',
+    outta: 'get tf outta town',
+    accent: 'speak in an exaggerated foreign accent',
+    secrets: 'divulge all of your darkest secrets',
+    doobie: 'smoke a doobie',
+    insults: 'just start hurling insults',
+    flaws: 'make them uncomfortable by staring intensely at their physical flaws',
+    spit: 'spit in their mouth',
+    demon: 'pretend you are possessed by a demon and require an exorcism',
+    gaslight: 'gaslight them and distort their sense of reality',
+    roses: 'bring a dozen roses and a dozen condoms',
+    creditcard: 'swipe and max out their credit card',
+    hitman: 'hire a hit man',
+    ignore: 'ignore the situation and hope it passes on its own',
+    trampstamp: 'get matching tramp stamps',
+    note: 'leave a passive-aggressive note',
+    ex: 'call your ex',
+    crypto: 'invest all of your money in crypto',
+    cash: 'withdraw all the cash you have and hit the Las Vegas strip',
+    photoshop: 'use photoshop to create images of what your future children will look like',
+    lawsuit: 'threaten them with a lawsuit',
+    dump: 'dump them',
+    darkweb: 'sell their personal information on the dark web',
+    cheat: 'cheat',
+    catfish: 'create a fake social media persona and catfish them'
+  };
+  var SITUATIONS = [
+    { id: 'sit-hr', text: 'i have an unexpected meeting with human resources',
+      pool: ['rizz','authority','lapdance','rap','geopolitics','tinder','fart','tantrum','illness','pregnant','harassment','ghost','drink','giveup','refuse','footrub','slutty','outta','accent','secrets','doobie','insults','flaws','spit','demon','gaslight','roses'] },
+    { id: 'sit-home', text: "i'm home alone and a stranger has broken into the house",
+      pool: ['lapdance','geopolitics','gaslight','tinder','spit','doobie','fart','creditcard','tantrum','footrub','hitman','insults','flaws','slutty','ignore','demon','trampstamp'] },
+    { id: 'sit-rent', text: "rent is due but i can't afford to pay",
+      pool: ['ghost','gaslight','tantrum','lapdance','note','illness','outta','ex','refuse','crypto','trampstamp','ignore','hitman','cash','rap','demon'] },
+    { id: 'sit-partner', text: "i told my partner i love them and they didn't say it back",
+      pool: ['photoshop','pregnant','lawsuit','flaws','tantrum','insults','refuse','dump','note','darkweb','cheat','illness','ghost','giveup','rap','creditcard','ex','hitman','gaslight','catfish','demon','trampstamp'] },
+    { id: 'sit-owe', text: "i owe my friend money but can't afford to pay them back",
+      pool: ['ghost','crypto','doobie','giveup','refuse','tantrum','dump','note','illness','rap','pregnant','ignore','spit','outta','gaslight','insults','catfish','harassment','cash','flaws','hitman','creditcard','demon'] }
+  ];
+  var HAND_SIZE = 7;
+  var RATIO = 540 / 736;
+  // -------------------------------------------------------------------
+
+  var src = function (id) { return 'cards/' + id + '.webp'; };
+  var $ = function (s) { return document.querySelector(s); };
+  var root = document.documentElement;
+  var stage = $('#stage'), sitWrap = $('#sitWrap'), sit = $('#sit'), copy = $('#copy'),
+      hand = $('#hand'), row = $('#row'), fx = $('#fx'), panel = $('#panel'), again = $('#again');
+  var RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var T = function (ms) { return RM ? 1 : ms; };
+
+  var state = 'idle', mode = '', deck = [], current = null, cards = [], selected = -1, lastSit = null;
+  var W = 0, H = 0, geo = {}, pair = null;
+
+  function shuffle(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function preload(id) { var i = new Image(); i.src = src(id); }
+
+  function nextSituation() {
+    if (!deck.length) {
+      deck = shuffle(SITUATIONS);
+      if (lastSit && deck[0] === lastSit && deck.length > 1) { deck.push(deck.shift()); }
+    }
+    lastSit = deck.shift();
+    if (deck.length) preload(deck[0].id);
+    return lastSit;
+  }
+
+  // ---------- layout ----------
+  function measure() {
+    W = stage.clientWidth; H = stage.clientHeight;
+    var m = (W >= 900 && H >= 520) ? 'desk' : 'mob';
+    if (m !== mode) { root.classList.remove('desk', 'mob'); root.classList.add(m); mode = m; }
+    if (mode === 'mob') {
+      var sh = clamp(H * 0.36, 160, 330);
+      var hw = clamp(H * 0.32, 160, 290) * RATIO;
+      root.style.setProperty('--sh', sh + 'px');
+      root.style.setProperty('--sr', '-3deg');
+      root.style.setProperty('--hw', hw + 'px');
+      sitWrap.style.cssText = copy.style.cssText = '';
+      geo = { sitRot: -3 };
+    } else {
+      var sh2 = clamp(H * 0.5, 250, 430);
+      var sw = sh2 * RATIO;
+      var sitLeft = W - sw - Math.max(56, W * 0.095);
+      root.style.setProperty('--sh', sh2 + 'px');
+      root.style.setProperty('--sr', '-4deg');
+      sitWrap.style.cssText = 'left:' + sitLeft + 'px;top:' + Math.max(20, H * 0.05) + 'px;width:' + sw + 'px';
+      var cl = Math.max(40, W * 0.05);
+      var cw = Math.min(620, sitLeft - cl - 48);
+      var fs = clamp(Math.min(W * 0.0625, H * 0.112, cw / 6.2), 44, 92);
+      copy.style.cssText = 'left:' + cl + 'px;top:' + (H * 0.17) + 'px;width:' + cw + 'px';
+      copy.querySelector('.headline').style.fontSize = fs + 'px';
+      var ch = clamp(H * 0.35, 190, 300), cww = ch * RATIO;
+      root.style.setProperty('--hw', cww + 'px');
+      root.style.setProperty('--pw', clamp(W * 0.4, 400, 540) + 'px');
+      geo = { sitRot: -4, ch: ch, cw: cww };
+    }
+    if (mode === 'mob') copy.querySelector('.headline').style.fontSize = '';
+    layoutHand();
+  }
+
+  function layoutHand() {
+    var slots = row.children, n = slots.length;
+    for (var i = 0; i < n; i++) {
+      var s = slots[i];
+      if (mode === 'desk') {
+        var d = i - (n - 1) / 2;
+        var step = Math.min(geo.cw * 0.8, (W * 0.86 - geo.cw) / Math.max(1, n - 1));
+        var x = W / 2 + d * step - geo.cw / 2;
+        var y = H - geo.ch * 0.9 + d * d * 3.8 * (geo.ch / 250);
+        var r = d * 3.2;
+        s.style.left = x + 'px'; s.style.top = y + 'px';
+        s.style.setProperty('--r', r + 'deg');
+        s.style.zIndex = String(i + 1);
+      } else {
+        s.style.left = s.style.top = s.style.zIndex = '';
+        s.style.setProperty('--r', '0deg');
+      }
+    }
+  }
+
+  // ---------- round ----------
+  function startRound() {
+    state = 'deal';
+    current = nextSituation();
+    var picks = shuffle(current.pool).slice(0, HAND_SIZE);
+    sit.src = src(current.id);
+    sit.alt = 'Situation card: ' + current.text;
+    sit.style.visibility = '';
+    row.innerHTML = '';
+    selected = -1;
+    cards = picks;
+    picks.forEach(function (id, i) {
+      var b = document.createElement('button');
+      b.className = 'slot';
+      b.type = 'button';
+      b.setAttribute('aria-label', 'Advice card: ' + CARDS[id]);
+      b.innerHTML = '<span class="pill">play this card</span><img class="face" alt="" src="' + src(id) + '">';
+      b.addEventListener('click', function () { onCard(i); });
+      row.appendChild(b);
+    });
+    row.scrollLeft = 0;
+    showPlayBtn(false);
+    measure();
+    [sitWrap, copy, hand].forEach(function (el) { el.classList.remove('gone'); });
+
+    var anims = [];
+    anims.push(sit.animate([
+      { transform: 'translateY(-40px) rotate(' + (geo.sitRot - 8) + 'deg)', opacity: 0 },
+      { transform: 'rotate(' + geo.sitRot + 'deg)', opacity: 1 }
+    ], { duration: T(520), easing: 'cubic-bezier(.2,.8,.2,1)' }).finished);
+    Array.prototype.forEach.call(row.children, function (s, i) {
+      var r = s.style.getPropertyValue('--r') || '0deg';
+      var base = mode === 'desk' ? 'rotate(' + r + ')' : 'none';
+      var from = mode === 'desk'
+        ? 'translateY(' + (geo.ch * 1.1) + 'px) rotate(' + r + ')'
+        : 'translateY(80px)';
+      anims.push(s.animate([
+        { transform: from, opacity: 0 },
+        { transform: base, opacity: 1 }
+      ], { duration: T(480), delay: T(120 + i * 55), easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' }).finished);
+    });
+    Promise.all(anims).catch(function () {}).then(function () { if (state === 'deal') state = 'pick'; });
+  }
+
+  function onCard(i) {
+    if (state !== 'pick' && state !== 'deal') return;
+    if (state === 'deal') state = 'pick';
+    if (selected === i) { play(); return; }
+    var slots = row.children;
+    if (selected >= 0 && slots[selected]) { slots[selected].classList.remove('sel'); slots[selected].setAttribute('aria-label', 'Advice card: ' + CARDS[cards[selected]]); }
+    selected = i;
+    slots[i].classList.add('sel');
+    slots[i].setAttribute('aria-label', 'Play this card: ' + CARDS[cards[i]]);
+    showPlayBtn(true);
+    if (mode === 'mob') {
+      // scroll the row only; never scrollIntoView, which can scroll the host page around an embed
+      var s = slots[i];
+      var target = s.offsetLeft - (row.clientWidth - s.offsetWidth) / 2;
+      row.scrollTo({ left: target, behavior: RM ? 'auto' : 'smooth' });
+    }
+  }
+
+  // geometry helpers for the pair
+  function boxOf(el, rot, useRect) {
+    var r = el.getBoundingClientRect(), s = stage.getBoundingClientRect();
+    return { cx: r.left - s.left + r.width / 2, cy: r.top - s.top + r.height / 2, h: useRect ? r.height : el.offsetHeight, r: rot };
+  }
+  function frame(b) {
+    var w = b.h * RATIO;
+    return { left: (b.cx - w / 2) + 'px', top: (b.cy - b.h / 2) + 'px', width: w + 'px', height: b.h + 'px', transform: 'rotate(' + b.r + 'deg)' };
+  }
+  function put(el, b) { var f = frame(b); for (var k in f) el.style[k] = f[k]; }
+  function move(el, a, b, ms, ease) {
+    var kf = [frame(a), frame(b)];
+    var an = el.animate(kf, { duration: T(ms), easing: ease || 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' });
+    return an.finished.then(function () { put(el, b); an.cancel(); });
+  }
+
+  function pairTargets(kind) {
+    if (kind === 'meet') {
+      var h = mode === 'desk' ? Math.min(H * 0.5, 360) : clamp(Math.min(H * 0.38, W * 0.62 / RATIO), 160, 320);
+      var w = h * RATIO;
+      return { sit: { cx: W / 2 - w * 0.26, cy: H / 2 - h * 0.06, h: h, r: -7 },
+               adv: { cx: W / 2 + w * 0.26, cy: H / 2 + h * 0.08, h: h, r: 6 } };
+    }
+    if (kind === 'result' && mode === 'desk') {
+      var pw = panel.offsetWidth, L = W - pw;
+      var h2 = Math.min(H * 0.54, 400, (L * 0.78) / (RATIO * 1.55));
+      var w2 = h2 * RATIO;
+      return { sit: { cx: L / 2 - w2 * 0.27, cy: H / 2 - h2 * 0.06, h: h2, r: -7 },
+               adv: { cx: L / 2 + w2 * 0.27, cy: H / 2 + h2 * 0.1, h: h2, r: 6 } };
+    }
+    if (kind === 'result') {
+      var area = H - panel.offsetHeight;
+      var h3 = clamp(Math.min(area * 0.84, (W * 0.9) / (RATIO * 1.55)), 150, 300);
+      var w3 = h3 * RATIO;
+      var cy = Math.max(area / 2 + 4, h3 / 2 + 14);
+      return { sit: { cx: W / 2 - w3 * 0.27, cy: cy - h3 * 0.05, h: h3, r: -7 },
+               adv: { cx: W / 2 + w3 * 0.27, cy: cy + h3 * 0.07, h: h3, r: 6 } };
+    }
+    // 'closed': pair centred with room for the button under it
+    var h4 = mode === 'desk' ? Math.min(H * 0.56, 400) : clamp(Math.min(H * 0.5, W * 0.9 / (RATIO * 1.55)), 160, 340);
+    var w4 = h4 * RATIO, cy4 = H / 2 - 30;
+    return { sit: { cx: W / 2 - w4 * 0.27, cy: cy4 - h4 * 0.05, h: h4, r: -7 },
+             adv: { cx: W / 2 + w4 * 0.27, cy: cy4 + h4 * 0.07, h: h4, r: 6 } };
+  }
+
+  function play() {
+    if (state !== 'pick' || selected < 0) return;
+    state = 'anim';
+    var slots = row.children, chosen = slots[selected];
+    var face = chosen.querySelector('.face');
+
+    // clones for the pair, starting exactly where the originals are
+    var a = boxOf(sit, geo.sitRot), b = boxOf(face, 0, true);
+    var cs = document.createElement('img'), ca = document.createElement('img');
+    cs.src = sit.src; cs.alt = sit.alt; cs.className = 'lift-shadow';
+    ca.src = face.src; ca.alt = 'Your card: ' + CARDS[cards[selected]]; ca.className = 'glow';
+    fx.className = ''; fx.innerHTML = ''; fx.appendChild(cs); fx.appendChild(ca);
+    put(cs, a); put(ca, b);
+    sit.style.visibility = 'hidden'; face.style.visibility = 'hidden'; chosen.classList.remove('sel');
+    showPlayBtn(false);
+    pair = { cs: cs, ca: ca, advId: cards[selected] };
+
+    // rest of the hand drops away
+    Array.prototype.forEach.call(slots, function (s, i) {
+      if (i === selected) return;
+      var r = parseFloat(s.style.getPropertyValue('--r')) || 0;
+      var spin = (i < selected ? -1 : 1) * (14 + Math.random() * 10);
+      var base = mode === 'desk' ? 'rotate(' + r + 'deg)' : 'none';
+      s.animate([
+        { transform: base, opacity: 1 },
+        { transform: 'translateY(' + (H * 0.6) + 'px) rotate(' + (r + spin) + 'deg)', opacity: 0 }
+      ], { duration: T(520), delay: T(Math.abs(i - selected) * 35), easing: 'cubic-bezier(.5,0,.75,0)', fill: 'forwards' });
+    });
+    copy.classList.add('gone'); sitWrap.classList.add('gone'); hand.classList.add('gone');
+    sit.style.visibility = 'hidden';
+    sitWrap.classList.add('gone');
+
+    var meet = pairTargets('meet');
+    Promise.all([
+      move(cs, a, meet.sit, 620),
+      move(ca, b, meet.adv, 620, 'cubic-bezier(.2,.8,.2,1.15)')
+    ]).then(function () {
+      return wait(T(260));
+    }).then(function () {
+      openPanel();
+      var res = pairTargets('result');
+      if (mode === 'mob') fx.className = 'dim';
+      return Promise.all([move(cs, meet.sit, res.sit, 560), move(ca, meet.adv, res.adv, 560)]);
+    }).then(function () { state = 'result'; });
+  }
+
+  var playBtn = $('#playBtn');
+  function showPlayBtn(on) { playBtn.classList.toggle('show', on); playBtn.tabIndex = on ? 0 : -1; }
+  playBtn.addEventListener('click', function () { play(); });
+
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  function setPanelFocusable(on) {
+    panel.setAttribute('aria-hidden', on ? 'false' : 'true');
+    Array.prototype.forEach.call(panel.querySelectorAll('a,button'), function (el) { el.tabIndex = on ? 0 : -1; });
+  }
+  function openPanel() {
+    again.hidden = true;
+    panel.classList.add('open');
+    setPanelFocusable(true);
+  }
+  function closePanel() {
+    if (state !== 'result') return;
+    state = 'anim';
+    panel.classList.remove('open');
+    setPanelFocusable(false);
+    fx.className = '';
+    var cur = currentBoxes(), t = pairTargets('closed');
+    Promise.all([move(pair.cs, cur.sit, t.sit, 480), move(pair.ca, cur.adv, t.adv, 480)]).then(function () {
+      again.style.left = (W / 2) + 'px';
+      again.style.top = Math.min(H - 64, t.adv.cy + t.adv.h / 2 + 28) + 'px';
+      again.hidden = false;
+      state = 'closed';
+    });
+  }
+  function currentBoxes() {
+    return {
+      sit: boxFromStyle(pair.cs, -7),
+      adv: boxFromStyle(pair.ca, 6)
+    };
+  }
+  function boxFromStyle(el, r) {
+    var l = parseFloat(el.style.left), t = parseFloat(el.style.top), w = parseFloat(el.style.width), h = parseFloat(el.style.height);
+    return { cx: l + w / 2, cy: t + h / 2, h: h, r: r };
+  }
+
+  function nextRound() {
+    if (state !== 'result' && state !== 'closed') return;
+    state = 'anim';
+    again.hidden = true;
+    panel.classList.remove('open');
+    setPanelFocusable(false);
+    var cur = currentBoxes();
+    var outS = { cx: cur.sit.cx - W * 0.15, cy: -cur.sit.h, h: cur.sit.h * 0.9, r: -22 };
+    var outA = { cx: cur.adv.cx + W * 0.15, cy: -cur.adv.h, h: cur.adv.h * 0.9, r: 20 };
+    Promise.all([
+      move(pair.cs, cur.sit, outS, 520, 'cubic-bezier(.5,0,.75,0)'),
+      move(pair.ca, cur.adv, outA, 520, 'cubic-bezier(.5,0,.75,0)')
+    ]).then(function () {
+      fx.innerHTML = ''; fx.className = ''; pair = null;
+      startRound();
+    });
+  }
+
+  panel.querySelector('.again').addEventListener('click', nextRound);
+  panel.querySelector('.close').addEventListener('click', closePanel);
+  again.addEventListener('click', nextRound);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closePanel();
+  });
+
+  var rt;
+  window.addEventListener('resize', function () {
+    clearTimeout(rt);
+    rt = setTimeout(function () {
+      measure();
+      if (pair && (state === 'result' || state === 'closed')) {
+        var t = pairTargets(state === 'result' ? 'result' : 'closed');
+        put(pair.cs, t.sit); put(pair.ca, t.adv);
+        if (state === 'closed') { again.style.left = (W / 2) + 'px'; again.style.top = Math.min(H - 64, t.adv.cy + t.adv.h / 2 + 28) + 'px'; }
+      }
+    }, 120);
+  });
+
+  measure();
+  startRound();
+})();
+</script>
+</body>
+</html>
